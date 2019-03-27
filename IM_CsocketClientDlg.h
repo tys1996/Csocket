@@ -47,11 +47,13 @@ public:
 	afx_msg void OnSend();
 	afx_msg void OnButtonConn();
 	afx_msg void OnButtonClose();
-	void OnReceive();
-	void ReceiveMsg();
-	void SendMsg(CString& strText, bool st);
+
+	void OnReceive();//接收信息
+	void ReceiveMsg();//接收服务发来的数据
+	void SendMsg(CString& strText, bool st);//向服务器发送数据
+	//指针对象
 	CCSocket* m_pSocket;
 	CSocketFile* m_pFile;
-	CArchive* m_pArchiveIn;
+	CArchive* m_pArchiveIn;//输入
 	CArchive* m_pArchiveOut;
 };

@@ -6,6 +6,8 @@
 #include "IM_CsocketClient.h"
 #include "IM_CsocketClientDlg.h"
 #include "afxdialogex.h"
+#include "Msg.h"
+#include "CSocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -51,6 +53,7 @@ END_MESSAGE_MAP()
 
 CIM_CsocketClientDlg::CIM_CsocketClientDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_IM_CSOCKETCLIENT_DIALOG, pParent)
+	//初始化代码
 	, m_strCName(_T(""))
 	, m_strSName(_T(""))
 	, m_strMsg(_T(""))
@@ -119,6 +122,13 @@ BOOL CIM_CsocketClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	m_strCName = "客户1";
+	m_nPort = 8000;
+	m_strSName = _T("localhost");
+	GetDlgItem(IDC_EDIT_MSG)->EnableWindow(FALSE);
+	GetDlgItem(IDOK)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_CLOSE)->EnableWindow(FALSE);
+	UpdateData(FALSE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -175,17 +185,57 @@ HCURSOR CIM_CsocketClientDlg::OnQueryDragIcon()
 
 
 
-
+//点击发送，执行此函数，向服务器发送消息
 void CIM_CsocketClientDlg::OnSend()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CDialogEx::OnOK();
+	//CDialogEx::OnOK();
+	UpdateData(TRUE);//取回用户输入的信息
+	if (!m_strMsg.IsEmpty())
+	{
+		this->SendMsg(m_strCName + ":" + m_strMsg, FALSE);
+		m_strMsg = _T("");
+		UpdateData(FALSE);//更新用户界面，将客户输入的消息删除
+	}
 }
 
-
+//单击连接时，执行次函数，向服务器请求连接
 void CIM_CsocketClientDlg::OnButtonConn()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	m_pSocket = new CCSocket(this);//创建套接字对象
+	if(!m_pSocket->Create())//创建套接字对象的底层套接字
+	{
+		delete m_pSocket;//错误处理
+		m_pSocket = NULL;
+		AfxMessageBox(L"套接字创建错误！");
+		return;
+	}
+	if (!m_pSocket->Connect(m_strSName,m_nPort))
+	{
+		delete m_pSocket;//错误处理
+		m_pSocket = NULL;
+		AfxMessageBox(L"无法连接服务器错误！");
+		return;
+	}
+	//创建CSocketFile类对象
+	m_pFile = new CSocketFile(m_pSocket);
+	//分别创建用于输入和用于输出的CArchive类对象
+	m_pArchiveIn = new CArchive(m_pFile, CArchive::load);
+	m_pArchiveOut = new CArchive(m_pFile, CArchive::store);
+	//调用SenMsg函数，向服务器发送消息，表明该客户机进入聊天室
+	UpdateData(TRUE);
+	CString strTemp;
+	strTemp = m_strCName + L"：进入聊天室";
+	SendMsg(strTemp, FALSE);
+	GetDlgItem(IDC_EDIT_MSG)->EnableWindow(TRUE);
+	GetDlgItem(IDOK)->EnableWindow(TRUE);
+	GetDlgItem(IDC_BUTTON_CLOSE)->EnableWindow(TRUE);
+
+	GetDlgItem(IDC_EDIT_CNAME)->EnableWindow(FALSE);
+	GetDlgItem(IDC_EDIT_SNAME)->EnableWindow(FALSE);
+	GetDlgItem(IDC_EDIT_PORT)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_CONN)->EnableWindow(FALSE);
 }
 
 
@@ -204,7 +254,18 @@ void CIM_CsocketClientDlg::ReceiveMsg()
 {
 }
 
-
+//实际执行发送的函数
 void CIM_CsocketClientDlg::SendMsg(CString& strText,bool st)
 {
+	if (m_pArchiveOut != NULL)
+	{
+		CMsg msg;//创建一个消息对象
+		//将要发送的信息文本赋给消息对象的成员变量
+		msg.m_strBuf = strText;
+		msg.m_bClose = st;
+		//调用消息对象的系列化函数，发送消息
+		msg.Serialize(*m_pArchiveOut);
+		//将CArchive对象中的数据强制存储到CSocketFile对象中
+		m_pArchiveOut->Flush();
+	}
 }
