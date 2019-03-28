@@ -51,6 +51,7 @@ public:
 	void OnReceive();//接收信息
 	void ReceiveMsg();//接收服务发来的数据
 	void SendMsg(CString& strText, bool st);//向服务器发送数据
+	void OnDestroy();//终止运行时进行的后续处理
 	//指针对象
 	CCSocket* m_pSocket;
 	CSocketFile* m_pFile;

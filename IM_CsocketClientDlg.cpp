@@ -238,20 +238,79 @@ void CIM_CsocketClientDlg::OnButtonConn()
 	GetDlgItem(IDC_BUTTON_CONN)->EnableWindow(FALSE);
 }
 
-
+//断开时执行，做客户机退出聊天室的相关处理
 void CIM_CsocketClientDlg::OnButtonClose()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	CString strTemp;
+	strTemp = m_strCName + L":离开聊天室！";
+	SendMsg(strTemp, TRUE);
+
+	//删除输出、输入、套接字对象
+	delete m_pArchiveOut;
+	m_pArchiveOut = NULL;
+	delete m_pArchiveIn;
+	m_pArchiveIn = NULL;
+	delete m_pFile;
+	m_pFile = NULL;
+	m_pSocket->Close();
+	delete m_pSocket;
+	m_pSocket = NULL;
+
+	//清楚列表框
+	while (m_listMsg.GetCount() != 0)
+	{
+		m_listMsg.DeleteString(0);
+	}
+	//清楚列表框
+	GetDlgItem(IDC_EDIT_MSG)->EnableWindow(FALSE);
+	GetDlgItem(IDOK)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_CLOSE)->EnableWindow(FALSE);
+
+	GetDlgItem(IDC_EDIT_CNAME)->EnableWindow(TRUE);
+	GetDlgItem(IDC_EDIT_SNAME)->EnableWindow(TRUE);
+	GetDlgItem(IDC_EDIT_PORT)->EnableWindow(TRUE);
+	GetDlgItem(IDC_BUTTON_CONN)->EnableWindow(TRUE);
 }
 
-
+//当套接字收到FD_READ消息时，执行
 void CIM_CsocketClientDlg::OnReceive()
 {
+	do {
+		ReceiveMsg();
+		if (m_pSocket == NULL)  return;
+	} while (!m_pArchiveIn->IsBufferEmpty());
 }
 
-
+//实际接收消息的函数
 void CIM_CsocketClientDlg::ReceiveMsg()
 {
+	CMsg msg;
+		TRY
+	{
+		//调用消息对象的序列化函数，接收消息
+		msg.Serialize(*m_pArchiveIn);
+		m_listMsg.AddString(msg.m_strBuf);//将消息显示于列表框
+	}
+	CATCH(CFileException,e)//错误处理
+	{
+		//显示处理服务器关闭的消息
+		CString strTemp;
+		strTemp = L"服务器重置连接，连接关闭";
+		m_listMsg.AddString(strTemp);
+		msg.m_bClose = TRUE;
+		m_pArchiveOut->Abort;
+		//删除相应的对象
+		delete m_pArchiveIn;
+		m_pArchiveIn = NULL;
+		delete m_pArchiveOut;
+		m_pArchiveOut = NULL;
+		delete m_pFile;
+		m_pFile = NULL;
+		delete m_pSocket;
+		m_pSocket = NULL;
+	}
+	END_CATCH
 }
 
 //实际执行发送的函数
@@ -268,4 +327,39 @@ void CIM_CsocketClientDlg::SendMsg(CString& strText,bool st)
 		//将CArchive对象中的数据强制存储到CSocketFile对象中
 		m_pArchiveOut->Flush();
 	}
+}
+
+//对话框类终止运行的后续处理
+void  CIM_CsocketClientDlg::OnDestroy()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CDialogEx::OnDestroy();
+	
+	if ((m_pSocket != NULL) && (m_pFile != NULL) && (m_pArchiveOut != NULL))
+	{
+		//发送客户机离开聊天室的消息
+		CMsg msg;
+		CString strTemp;
+		strTemp = L"DDDD:离开聊天室！";
+		msg.m_bClose = TRUE;
+		msg.m_strBuf = m_strCName + strTemp;
+		msg.Serialize(*m_pArchiveOut);
+		m_pArchiveOut->Flush();
+	}
+
+	delete m_pArchiveOut;
+	m_pArchiveOut = NULL;
+	delete m_pArchiveIn;
+	m_pArchiveIn = NULL;
+	delete m_pFile;
+	m_pFile = NULL;
+
+	if(m_pSocket != NULL)
+	{
+		BYTE Buffer[50];
+		m_pSocket->ShutDown();
+		while (m_pSocket->Receive(Buffer, 50) > 0);
+	}
+	delete m_pSocket;
+	m_pSocket = NULL;
 }
