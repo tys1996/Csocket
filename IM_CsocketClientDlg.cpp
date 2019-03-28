@@ -299,7 +299,7 @@ void CIM_CsocketClientDlg::ReceiveMsg()
 		strTemp = L"服务器重置连接，连接关闭";
 		m_listMsg.AddString(strTemp);
 		msg.m_bClose = TRUE;
-		m_pArchiveOut->Abort;
+		m_pArchiveOut->Abort();
 		//删除相应的对象
 		delete m_pArchiveIn;
 		m_pArchiveIn = NULL;
